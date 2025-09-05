@@ -690,8 +690,16 @@
                         projectFiles = {};
                         
                         // Organize files by path
-                        data.files.forEach(file => {
-                            projectFiles[file.path] = file;
+                        data.project.files.forEach(filePath => {
+                            // Load file content
+                            fetch(`/api/project/${projectName}`)
+                                .then(response => response.json())
+                                .then(fileData => {
+                                    const file = fileData.files.find(f => f.path === filePath);
+                                    if (file) {
+                                        projectFiles[filePath] = file;
+                                    }
+                                });
                         });
                         
                         // Show workspace and hide project selector

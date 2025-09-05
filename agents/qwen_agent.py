@@ -289,7 +289,7 @@ Requirements:
 
 Return only the code, no explanations or markdown formatting. The code should be ready to run."""
             
-            generated_code = gemini._generate_gemini_response(prompt)
+            generated_code = gemini._generate_gemini_response(prompt, False)
             return self._extract_code_from_response(generated_code, language)
             
         except Exception as e:
@@ -338,7 +338,7 @@ Code:"""
                 "top_p": 0.9
             }
             
-            response = requests.post(url, headers=self.headers, json=payload, timeout=30)
+            response = requests.post(url, headers=self.headers, json=payload, timeout=120)
             response.raise_for_status()
             
             return response.json()
@@ -612,7 +612,7 @@ Example format:
 
 Focus on creating functional, working code that addresses the user's request."""
             
-            response = gemini._generate_gemini_response(prompt)
+            response = gemini._generate_gemini_response(prompt, False)
             
             # Try to parse as JSON
             import re

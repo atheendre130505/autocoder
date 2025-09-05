@@ -133,27 +133,26 @@ class AutonomousAutocoder:
     def _extract_project_name(self, request: str) -> str:
         """Extract project name from request."""
         import re
+        import time
         
         patterns = [
             r'create\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)',
             r'build\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)',
             r'make\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)',
-            r'generate\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)'
+            r'generate\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)',
+            r'(\w+)\s+(?:project|app|program|script|tool)',
+            r'(\w+)\s+(?:manager|calculator|scraper|generator)'
         ]
         
         for pattern in patterns:
             match = re.search(pattern, request.lower())
             if match:
-                return match.group(1)
+                name = match.group(1)
+                if name not in ['python', 'javascript', 'web', 'app', 'program']:
+                    return name
         
-        # Fallback - use first word after "create"
-        words = request.lower().split()
-        if 'create' in words:
-            idx = words.index('create')
-            if idx + 1 < len(words):
-                return words[idx + 1]
-        
-        return f"autonomous_project_{int(time.time())}"
+        # Fallback: use timestamp-based name
+        return f"project_{int(time.time())}"
     
     def _extract_description(self, request: str) -> str:
         """Extract project description from request."""

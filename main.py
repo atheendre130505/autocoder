@@ -1,25 +1,31 @@
+#!/usr/bin/env python3
+"""
+Autocoder - AI-Powered Coding Assistant
+Terminal-first AI development tool with autonomous capabilities
+"""
+
+import sys
 from agents.gemini_agent import GeminiAgent
 from agents.qwen_agent import QwenAgent
-from cli.interface import AutocoderCLI
+from terminal_interface import TerminalInterface
 from core import config, logger
-from rich.panel import Panel
+from autonomous_mode import AutonomousAutocoder
 
 def main():
-    """Main CLI loop for autocoder with enhanced interface."""
-    cli = AutocoderCLI()
+    """Main CLI loop for autocoder with terminal interface."""
+    cli = TerminalInterface()
     
     try:
         # Display welcome message
         cli.display_welcome()
         
-        # Initialize agents
+        # Initialize autonomous autocoder
         cli.display_loading("Initializing AI agents...")
-        gemini = GeminiAgent()
-        qwen = QwenAgent()
+        autocoder = AutonomousAutocoder()
         
         # Display system status
         config_status = config.validate_config()
-        cli.display_status(config_status, gemini.get_plan_content())
+        cli.display_status(config_status)
         
         cli.display_separator()
         
@@ -33,145 +39,82 @@ def main():
                 elif user_input.lower() == 'help':
                     cli.display_help()
                     continue
-                elif user_input.lower() == 'plan':
-                    cli.console.print(Panel(
-                        gemini.get_plan_content(),
-                        title="Current Project Plan",
-                        border_style="blue"
-                    ))
-                    continue
                 elif user_input.lower() == 'status':
-                    cli.display_status(config_status, gemini.get_plan_content())
+                    cli.display_status(config_status)
+                    continue
+                elif user_input.lower() == 'list':
+                    # Get projects from autocoder
+                    status = autocoder.get_status()
+                    projects = status.get('projects', [])
+                    cli.display_projects(projects)
                     continue
                 elif user_input.lower() == 'history':
-                    cli.display_history(gemini.get_conversation_context())
+                    cli.display_history(cli.history[-10:])
                     continue
                 elif user_input.lower() == 'clear':
-                    gemini.clear_conversation_history()
-                    cli.session_history = []
-                    cli.display_success("Conversation history cleared")
+                    cli.history.clear()
+                    cli.display_success("Conversation history cleared!")
                     continue
-                elif not user_input:
-                    continue
-                
-                # Process user input with Gemini
-                cli.display_loading("Gemini is thinking...")
-                response = gemini.process_user_input(user_input)
-                
-                # Display Gemini's response
-                cli.display_gemini_response(
-                    response['response_to_user'],
-                    {
-                        'requires_research': response['requires_research'],
-                        'research_queries': response['research_queries'],
-                        'next_action': response['next_action']
-                    }
-                )
-                
-                # Execute action with Qwen if needed
-                if response['next_action'] != 'conversation_only':
-                    cli.display_loading("Qwen is executing...")
+                elif user_input.lower().startswith('create '):
+                    # Handle project creation
+                    description = user_input[7:].strip()
+                    if not description:
+                        cli.display_error("Please provide a project description.")
+                        continue
                     
-                    # Determine project type and language from user input
-                    project_type, language = _detect_project_type(user_input)
+                    cli.display_loading("Creating project...")
+                    result = autocoder.process_request(description)
+                    cli.display_project_result(result)
+                    cli.log_interaction(user_input, f"Created project: {result.get('project_name', 'Unknown')}")
                     
-                    qwen_result = qwen.execute({
-                        'action': response['next_action'],
-                        'user_input': user_input,
-                        'response': response['response_to_user'],
-                        'language': language,
-                        'code_type': 'script',
-                        'project_type': project_type,
-                        'description': _extract_description(user_input)
-                    })
+                elif user_input.lower().startswith('run '):
+                    # Handle project execution
+                    project_name = user_input[4:].strip()
+                    if not project_name:
+                        cli.display_error("Please provide a project name.")
+                        continue
                     
-                    # Handle project creation specially
-                    if 'project' in user_input.lower() and qwen_result.get('success'):
-                        project_name = _extract_project_name(user_input)
-                        if project_name:
-                            project_result = qwen.create_project_structure(
-                                project_name, 
-                                project_type, 
-                                _extract_description(user_input)
-                            )
-                            if project_result['success']:
-                                qwen_result.update(project_result)
+                    cli.display_loading(f"Running project: {project_name}")
+                    # TODO: Implement project execution
+                    cli.display_info("Project execution feature coming soon!")
                     
-                    cli.display_qwen_result(qwen_result)
-                
-                # Save to session history
-                cli.save_session(user_input, response)
-                
-                cli.display_separator()
-                
+                elif user_input.lower().startswith('debug '):
+                    # Handle project debugging
+                    project_name = user_input[6:].strip()
+                    if not project_name:
+                        cli.display_error("Please provide a project name.")
+                        continue
+                    
+                    cli.display_loading(f"Debugging project: {project_name}")
+                    # TODO: Implement project debugging
+                    cli.display_info("Project debugging feature coming soon!")
+                    
+                else:
+                    # Process general request
+                    cli.display_loading("Processing request...")
+                    result = autocoder.process_request(user_input)
+                    
+                    if result.get('success'):
+                        cli.display_success("Request processed successfully!")
+                        if result.get('project_name'):
+                            cli.display_info(f"Created project: {result['project_name']}")
+                    else:
+                        cli.display_error(f"Request failed: {result.get('error', 'Unknown error')}")
+                    
+                    cli.log_interaction(user_input, "Request processed")
+                    
             except KeyboardInterrupt:
-                cli.display_success("\nGoodbye! 👋")
-                break
+                cli.display_info("Use 'quit' to exit or 'help' for commands.")
+                continue
             except Exception as e:
-                cli.display_error(f"An error occurred: {e}")
-                logger.error(f"Main loop error: {e}")
+                cli.display_error(f"An error occurred: {str(e)}")
+                logger.error(f"Error in main loop: {e}")
+                continue
                 
     except Exception as e:
-        cli.display_error(f"Failed to initialize autocoder: {e}")
+        cli.display_error(f"Failed to initialize autocoder: {str(e)}")
         logger.error(f"Initialization error: {e}")
-        cli.display_info("Please check your configuration and try again.")
-
-def _detect_project_type(user_input: str) -> tuple:
-    """Detect project type and language from user input."""
-    user_lower = user_input.lower()
-    
-    # Project type detection
-    if any(word in user_lower for word in ['react', 'jsx', 'component']):
-        return 'react', 'javascript'
-    elif any(word in user_lower for word in ['fastapi', 'api', 'rest', 'backend']):
-        return 'fastapi', 'python'
-    elif any(word in user_lower for word in ['javascript', 'node', 'js']):
-        return 'javascript', 'javascript'
-    elif any(word in user_lower for word in ['python', 'py', 'django', 'flask']):
-        return 'python', 'python'
-    else:
-        return 'python', 'python'  # Default
-
-def _extract_description(user_input: str) -> str:
-    """Extract project description from user input."""
-    # Simple extraction - look for descriptive phrases
-    words = user_input.split()
-    description_words = []
-    
-    for i, word in enumerate(words):
-        if word.lower() in ['for', 'that', 'which', 'to']:
-            description_words = words[i+1:]
-            break
-    
-    if not description_words:
-        description_words = words[2:]  # Skip first two words (usually "create a")
-    
-    return ' '.join(description_words) if description_words else 'Generated project'
-
-def _extract_project_name(user_input: str) -> str:
-    """Extract project name from user input."""
-    import re
-    
-    # Look for patterns like "create a project called X" or "create X project"
-    patterns = [
-        r'create\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)',
-        r'build\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)',
-        r'make\s+(?:a\s+)?(?:project\s+)?(?:called\s+)?(\w+)'
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, user_input.lower())
-        if match:
-            return match.group(1)
-    
-    # Fallback - use first word after "create"
-    words = user_input.lower().split()
-    if 'create' in words:
-        idx = words.index('create')
-        if idx + 1 < len(words):
-            return words[idx + 1]
-    
-    return 'autocoder_project'
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

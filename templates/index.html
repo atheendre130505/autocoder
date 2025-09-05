@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 Autonomous Autocoder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .workspace {
+            display: none;
+            grid-template-columns: 250px 1fr;
+            gap: 0;
+            height: calc(100vh - 200px);
+            margin-bottom: 30px;
+        }
+
+        .workspace.active {
+            display: grid;
+        }
+
+        .file-tree {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            overflow-y: auto;
+            border-radius: 8px 0 0 8px;
+        }
+
+        .file-tree h3 {
+            color: #81c784;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .file-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .file-item:hover {
+            background: #4a5568;
+        }
+
+        .file-item.active {
+            background: #667eea;
+        }
+
+        .file-icon {
+            margin-right: 8px;
+            font-size: 14px;
+        }
+
+        .editor-container {
+            background: #1e1e1e;
+            border-radius: 0 8px 8px 0;
+            position: relative;
+        }
+
+        .editor-toolbar {
+            background: #2d3748;
+            padding: 10px 15px;
+            border-bottom: 1px solid #4a5568;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-toolbar h4 {
+            color: #e2e8f0;
+            margin: 0;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-small:hover {
+            background: #5a6fd8;
+        }
+
+        .btn-small:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
+        }
+
+        #monaco-editor {
+            height: calc(100% - 50px);
+            width: 100%;
+        }
+
+        .project-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .project-selector h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .project-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .project-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .project-card h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .project-card p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .project-meta {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .status-value {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .projects-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .project-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            transition: background-color 0.3s ease;
+        }
+
+        .project-item:hover {
+            background: #e9ecef;
+        }
+
+        .project-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .project-details {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .project-actions {
+            margin-top: 10px;
+        }
+
+        .btn-small {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-right: 8px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-small:hover {
+            background: #5a6fd8;
+        }
+
+        .log {
+            background: #1e1e1e;
+            color: #f8f8f2;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+
+        .log-success {
+            color: #50fa7b;
+        }
+
+        .log-error {
+            color: #ff5555;
+        }
+
+        .log-info {
+            color: #8be9fd;
+        }
+
+        .log-warning {
+            color: #ffb86c;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.error {
+            background: #dc3545;
+        }
+
+        .notification.warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Autonomous Autocoder</h1>
+            <p>AI-Powered Project Creation & Execution</p>
+        </div>
+
+        <!-- Project Selector -->
+        <div class="project-selector" id="projectSelector">
+            <h2>📁 Select Project to Edit</h2>
+            <div class="project-grid" id="projectGrid">
+                <p style="text-align: center; color: #666; padding: 20px; grid-column: 1 / -1;">
+                    No projects created yet. Create your first project below!
+                </p>
+            </div>
+        </div>
+
+        <!-- Workspace (Hidden by default) -->
+        <div class="workspace" id="workspace">
+            <div class="file-tree">
+                <h3>📁 Files</h3>
+                <div id="fileTree"></div>
+            </div>
+            <div class="editor-container">
+                <div class="editor-toolbar">
+                    <h4 id="currentFile">Select a file to edit</h4>
+                    <div class="editor-actions">
+                        <button class="btn-small" id="saveBtn" onclick="saveCurrentFile()" disabled>💾 Save</button>
+                        <button class="btn-small" id="runBtn" onclick="runCurrentProject()">🚀 Run</button>
+                        <button class="btn-small" onclick="closeWorkspace()">❌ Close</button>
+                    </div>
+                </div>
+                <div id="monaco-editor"></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Project Creation Panel -->
+            <div class="card">
+                <h2>🚀 Create New Project</h2>
+                
+                <div class="input-group">
+                    <label for="projectRequest">What would you like to create?</label>
+                    <textarea id="projectRequest" rows="3" placeholder="e.g., Create a Python calculator with basic math operations"></textarea>
+                </div>
+
+                <button class="btn" id="createBtn" onclick="createProject()">
+                    Create Project
+                </button>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Creating project...</p>
+                </div>
+            </div>
+
+            <!-- Status Panel -->
+            <div class="card">
+                <h2>📊 System Status</h2>
+                
+                <div class="status" id="status">
+                    <div class="status-item">
+                        <span class="status-label">Autonomous Mode:</span>
+                        <span class="status-value" id="autonomousMode">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Projects Created:</span>
+                        <span class="status-value" id="projectsCount">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Successful Executions:</span>
+                        <span class="status-value" id="successfulExecutions">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Failed Executions:</span>
+                        <span class="status-value" id="failedExecutions">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Log -->
+        <div class="card">
+            <h2>📝 Real-time Log</h2>
+            <div class="log" id="log">
+                <div class="log-entry log-info">🤖 Autonomous Autocoder Web UI started</div>
+                <div class="log-entry log-info">📡 Connected to server</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Global variables
+        let monacoEditor = null;
+        let currentProject = null;
+        let currentFile = null;
+        let projectFiles = {};
+        
+        // DOM elements
+        const createBtn = document.getElementById('createBtn');
+        const loading = document.getElementById('loading');
+        const projectRequest = document.getElementById('projectRequest');
+        const log = document.getElementById('log');
+        const notification = document.getElementById('notification');
+        const workspace = document.getElementById('workspace');
+        const projectSelector = document.getElementById('projectSelector');
+        const fileTree = document.getElementById('fileTree');
+        const currentFileElement = document.getElementById('currentFile');
+        const saveBtn = document.getElementById('saveBtn');
+
+        // Socket event handlers
+        socket.on('connect', function() {
+            addLogEntry('Connected to server', 'info');
+        });
+
+        socket.on('project_start', function(data) {
+            addLogEntry(`🚀 Starting project: ${data.request}`, 'info');
+            showLoading(true);
+        });
+
+        socket.on('project_success', function(data) {
+            addLogEntry(`✅ Project created successfully: ${data.project_name}`, 'success');
+            addLogEntry(`📁 Location: ${data.project_path}`, 'info');
+            addLogEntry(`📄 Files created: ${data.files_created}`, 'info');
+            
+            if (data.execution_info && data.execution_info.execution) {
+                const exec = data.execution_info.execution;
+                if (exec.success) {
+                    addLogEntry(`🚀 Execution successful`, 'success');
+                    if (exec.stdout) {
+                        addLogEntry(`📤 Output: ${exec.stdout.substring(0, 100)}...`, 'info');
+                    }
+                } else {
+                    addLogEntry(`❌ Execution failed: ${exec.error || 'Unknown error'}`, 'error');
+                }
+            }
+            
+            showLoading(false);
+            showNotification('Project created successfully!', 'success');
+            loadProjects();
+            loadStatus();
+        });
+
+        socket.on('project_error', function(data) {
+            addLogEntry(`❌ Project creation failed: ${data.error}`, 'error');
+            showLoading(false);
+            showNotification('Project creation failed!', 'error');
+        });
+
+        // Monaco Editor initialization
+        function initializeMonaco() {
+            require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+            require(['vs/editor/editor.main'], function () {
+                monacoEditor = monaco.editor.create(document.getElementById('monaco-editor'), {
+                    value: '// Select a file to start editing\n// This is a full-featured code editor with syntax highlighting, autocomplete, and more!',
+                    language: 'javascript',
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    minimap: { enabled: true },
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on'
+                });
+
+                // Listen for content changes
+                monacoEditor.onDidChangeModelContent(() => {
+                    saveBtn.disabled = false;
+                });
+            });
+        }
+
+        // Project management functions
+        function createProject() {
+            const request = projectRequest.value.trim();
+            if (!request) {
+                showNotification('Please enter a project request', 'warning');
+                return;
+            }
+
+            createBtn.disabled = true;
+            showLoading(true);
+
+            fetch('/api/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ request: request })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLogEntry(`📤 Request sent: ${request}`, 'info');
+                } else {
+                    addLogEntry(`❌ Error: ${data.error}`, 'error');
+                    showLoading(false);
+                    createBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                addLogEntry(`❌ Network error: ${error.message}`, 'error');
+                showLoading(false);
+                createBtn.disabled = false;
+            });
+        }
+
+        function loadProjects() {
+            fetch('/api/projects')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayProjectGrid(data.projects);
+                    }
+                })
+                .catch(error => {
+                    addLogEntry(`❌ Error loading projects: ${error.message}`, 'error');
+                });
+        }
+
+        function displayProjectGrid(projects) {
+            const projectGrid = document.getElementById('projectGrid');
+            
+            if (projects.length === 0) {
+                projectGrid.innerHTML = '<p style="text-align: center; color: #666; padding: 20px; grid-column: 1 / -1;">No projects created yet. Create your first project below!</p>';
+                return;
+            }
+
+            projectGrid.innerHTML = projects.map(project => `
+                <div class="project-card" onclick="openProject('${project.name}')">
+                    <h4>${project.name}</h4>
+                    <p>Type: ${project.type}</p>
+                    <p>Files: ${project.files.length}</p>
+                    <div class="project-meta">
+                        Created: ${new Date(project.timestamp).toLocaleString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openProject(projectName) {
+            addLogEntry(`📂 Opening project: ${projectName}`, 'info');
+            
+            fetch(`/api/project/${projectName}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentProject = data.project;
+                        projectFiles = {};
+                        
+                        // Organize files by path
+                        data.files.forEach(file => {
+                            projectFiles[file.path] = file;
+                        });
+                        
+                        // Show workspace and hide project selector
+                        projectSelector.style.display = 'none';
+                        workspace.classList.add('active');
+                        
+                        // Build file tree
+                        buildFileTree();
+                        
+                        // Load first file
+                        const firstFile = data.files[0];
+                        if (firstFile) {
+                            openFile(firstFile.path);
+                        }
+                        
+                        addLogEntry(`✅ Project opened: ${projectName}`, 'success');
+                    } else {
+                        showNotification('Error loading project', 'error');
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error loading project', 'error');
+                });
+        }
+
+        function buildFileTree() {
+            const fileTreeElement = document.getElementById('fileTree');
+            fileTreeElement.innerHTML = '';
+            
+            Object.keys(projectFiles).forEach(filePath => {
+                const file = projectFiles[filePath];
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.onclick = () => openFile(filePath);
+                
+                const icon = getFileIcon(filePath);
+                fileItem.innerHTML = `
+                    <span class="file-icon">${icon}</span>
+                    <span>${filePath}</span>
+                `;
+                
+                fileTreeElement.appendChild(fileItem);
+            });
+        }
+
+        function getFileIcon(filePath) {
+            const ext = filePath.split('.').pop().toLowerCase();
+            const icons = {
+                'py': '🐍',
+                'js': '📜',
+                'html': '🌐',
+                'css': '🎨',
+                'json': '📋',
+                'md': '📝',
+                'txt': '📄',
+                'yml': '⚙️',
+                'yaml': '⚙️',
+                'xml': '📄',
+                'sql': '🗄️',
+                'sh': '🔧',
+                'bat': '🔧',
+                'exe': '⚙️',
+                'zip': '📦',
+                'tar': '📦',
+                'gz': '📦'
+            };
+            return icons[ext] || '📄';
+        }
+
+        function openFile(filePath) {
+            if (!projectFiles[filePath]) return;
+            
+            const file = projectFiles[filePath];
+            currentFile = filePath;
+            
+            // Update active file in tree
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.file-item').classList.add('active');
+            
+            // Update editor
+            if (monacoEditor) {
+                const language = getLanguageFromExtension(filePath);
+                monacoEditor.setModelLanguage(monacoEditor.getModel(), language);
+                monacoEditor.setValue(file.content);
+                currentFileElement.textContent = filePath;
+                saveBtn.disabled = true;
+            }
+        }
+
+        function getLanguageFromExtension(filePath) {
+            const ext = filePath.split('.').pop().toLowerCase();
+            const languages = {
+                'py': 'python',
+                'js': 'javascript',
+                'html': 'html',
+                'css': 'css',
+                'json': 'json',
+                'md': 'markdown',
+                'txt': 'plaintext',
+                'yml': 'yaml',
+                'yaml': 'yaml',
+                'xml': 'xml',
+                'sql': 'sql',
+                'sh': 'shell',
+                'bat': 'bat'
+            };
+            return languages[ext] || 'plaintext';
+        }
+
+        function saveCurrentFile() {
+            if (!currentFile || !monacoEditor) return;
+            
+            const content = monacoEditor.getValue();
+            
+            fetch(`/api/save/${currentProject.name}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filePath: currentFile,
+                    content: content
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('File saved successfully!', 'success');
+                    saveBtn.disabled = true;
+                    addLogEntry(`💾 Saved: ${currentFile}`, 'success');
+                } else {
+                    showNotification('Error saving file', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Error saving file', 'error');
+            });
+        }
+
+        function runCurrentProject() {
+            if (!currentProject) return;
+            
+            addLogEntry(`🚀 Running project: ${currentProject.name}`, 'info');
+            
+            fetch(`/api/execute/${currentProject.name}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogEntry(`✅ Execution successful for ${currentProject.name}`, 'success');
+                        if (data.execution.stdout) {
+                            addLogEntry(`📤 Output: ${data.execution.stdout}`, 'info');
+                        }
+                    } else {
+                        addLogEntry(`❌ Execution failed for ${currentProject.name}: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addLogEntry(`❌ Execution error for ${currentProject.name}: ${error.message}`, 'error');
+                });
+        }
+
+        function closeWorkspace() {
+            workspace.classList.remove('active');
+            projectSelector.style.display = 'block';
+            currentProject = null;
+            currentFile = null;
+            addLogEntry('📂 Workspace closed', 'info');
+        }
+
+        // Utility functions
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            createBtn.disabled = show;
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function loadStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('autonomousMode').textContent = data.config.autonomous_mode ? 'Enabled' : 'Disabled';
+                        document.getElementById('projectsCount').textContent = data.status.projects_created;
+                        document.getElementById('successfulExecutions').textContent = data.status.successful_executions;
+                        document.getElementById('failedExecutions').textContent = data.status.failed_executions;
+                    }
+                })
+                .catch(error => {
+                    addLogEntry(`❌ Error loading status: ${error.message}`, 'error');
+                });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatus();
+            loadProjects();
+            initializeMonaco();
+            
+            // Allow Enter key to create project
+            projectRequest.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    createProject();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

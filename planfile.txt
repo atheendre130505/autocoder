@@ -1,0 +1,132 @@
+# Plan File for Autocoder
+
+Version: 0.1
+
+## Project Vision
+- Provide an intelligent, conversational coding assistant capable of research, planning, file/terminal execution, code generation, error analysis, and review.
+
+## Core Agents
+- Gemini: Conversation, researching repos, planning, updating planfile.txt, error analysis.
+- Qwen: Code generation, file + CLI actions, code review/implementation.
+- Human: Approval checkpoint for major changes.
+
+## File Structure (Initial)
+- main.py: CLI entry point and loop.
+- gemini_agent.py: Orchestrates all plan-related logic.
+- qwen_agent.py: External model interface and file operations.
+- planfile.txt: This file, auto-updated.
+- requirements.txt: Dependencies.
+
+## Next Steps
+1. Scaffold the above files.
+2. Implement logic in Gemini agent to read, write, and update planfile.txt after every major action or conversation.
+3. Enable Qwen agent to consume planfile.txt to drive coding actions.
+
+## Update Log
+- [Timestamp] Project initialized, scaffold created.
+
+# Plan File for Autocoder - Modular Architecture
+
+Version: 0.2
+
+## Project Vision
+Building a modular AI coding assistant with 8 distinct modules for maintainability and testing.
+
+## Module Breakdown
+1. Core Infrastructure & Plan Management
+2. Gemini Agent & Research System  
+3. Qwen Agent & Code Generation
+4. CLI & Terminal Integration
+5. Human Approval Workflow
+6. Error Detection & Correction
+7. IDE Extension Interface
+8. Orchestrator & Main Loop
+
+## Development Approach
+- Build module by module
+- Test each module independently
+- Integrate incrementally
+- Maintain backwards compatibility
+
+## Current Focus
+Ready to begin Module 1: Core Infrastructure & Plan Management
+
+## Next Steps
+1. Create core directory structure
+2. Implement plan_manager.py
+3. Set up configuration management
+4. Test plan file operations
+
+## Update Log
+- [2025-08-03] Switched to modular architecture approach
+- [2025-08-03] Defined 8-module structure with clear responsibilities
+
+# Plan File for Autocoder
+
+Version: 0.3
+
+## Project Vision
+Building a modular AI coding assistant with 8 distinct modules for maintainability and testing.
+
+## Module Status
+1. Core Infrastructure & Plan Management ✅
+2. Gemini Agent & Research System 🚀 ACTIVE
+3. Qwen Agent & Code Generation  
+4. CLI & Terminal Integration
+5. Human Approval Workflow
+6. Error Detection & Correction
+7. IDE Extension Interface
+8. Orchestrator & Main Loop
+
+## Current Progress
+- Module 1 completed and tested
+- Environment file configured
+- Ready to implement Gemini integration with research capabilities
+
+## Next Steps
+1. Implement Gemini API integration
+2. Add GitHub repository search
+3. Create Stack Overflow research capability
+4. Build conversation memory system
+5. Test plan updating workflow
+
+## Update Log
+- [2025-08-03] Module 1 Core Infrastructure completed
+- [2025-08-03] Environment file configured by user
+- [2025-08-03] Starting Module 2: Gemini Agent & Research System
+
+
+# Plan File for Autocoder
+
+Version: 0.4
+
+## Project Vision
+Building a modular AI coding assistant with 8 distinct modules for maintainability and testing.
+
+## Module Status
+1. Core Infrastructure & Plan Management ✅
+2. Gemini Agent & Research System ✅
+3. Qwen Agent & Code Generation 🚀 ACTIVE
+4. CLI & Terminal Integration
+5. Human Approval Workflow
+6. Error Detection & Correction
+7. IDE Extension Interface
+8. Orchestrator & Main Loop
+
+## Current Progress
+- Modules 1-2 completed and tested
+- Module 2 successfully installed and working
+- Ready to implement Qwen code generation capabilities
+
+## Next Steps
+1. Implement Qwen model integration (local/API)
+2. Build code generation from plan instructions
+3. Add syntax validation and formatting
+4. Create multi-language support
+5. Test code generation workflow
+
+## Update Log
+- [2025-08-03] Module 2 Gemini Agent completed and tested
+- [2025-08-03] Dependencies installed successfully
+- [2025-08-03] Starting Module 3: Qwen Agent & Code Generation
+
